@@ -36,26 +36,57 @@ const channels = await getAllChannels();
 console.log(`Monitoring ${channels.length} channels`);
 
 const askGemini = async (msg) => {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `次の文章に最も合う絵文字を1つだけ返してください（絵文字のみ、説明不要）: ${msg}`,
-              },
-            ],
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `以下のメッセージの内容や感情を分析して、最も適切な絵文字を1つだけ選んでください。
+
+ルール:
+- 絵文字1つだけを返す（説明や文字は不要）
+- メッセージの感情（嬉しい、悲しい、怒り、驚き等）を考慮
+- メッセージの内容（食べ物、動物、イベント等）を考慮
+- 日本語の文脈を理解して適切な絵文字を選ぶ
+- 汎用的な✅や👍ではなく、具体的で内容に沿った絵文字を選ぶ
+
+メッセージ: ${msg}
+
+絵文字:`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.9,
+            maxOutputTokens: 10,
           },
-        ],
-      }),
+        }),
+      }
+    );
+    const j = await res.json();
+
+    if (j.error) {
+      console.error("Gemini API Error:", j.error);
+      return "❓";
     }
-  );
-  const j = await res.json();
-  return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "✅";
+
+    const text = j.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) return "❓";
+
+    // 絵文字以外の文字を除去
+    const emojiOnly = text.match(/[\p{Emoji}]/gu)?.[0];
+    return emojiOnly || "❓";
+  } catch (error) {
+    console.error("Gemini request failed:", error.message);
+    return "❓";
+  }
 };
 
 for (const ch of channels) {
