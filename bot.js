@@ -107,32 +107,30 @@ for (const ch of channels) {
   }
 
   for (const m of msgs.reverse()) {
+    // フィルター1: Botのメッセージはスキップ（最速）
     if (m.author.bot) continue;
 
-    // メッセージのタイムスタンプをチェック（24時間以内のみ処理）
-    const messageTimestamp = new Date(m.timestamp).getTime();
-    if (messageTimestamp < twentyFourHoursAgo) {
-      console.log(`Skipping old message (${m.timestamp})`);
-      continue;
-    }
-
-    // 既にこのBotがリアクション済みかチェック
-    let alreadyReacted = false;
-    if (m.reactions && m.reactions.length > 0) {
-      for (const reaction of m.reactions) {
-        if (reaction.me) {
-          alreadyReacted = true;
-          break;
-        }
-      }
-    }
-
-    if (alreadyReacted) {
-      console.log(`Already reacted to: ${m.content.slice(0, 50)}...`);
+    // フィルター2: 既にリアクション済みかチェック（2番目に速い）
+    if (m.reactions?.some((r) => r.me)) {
+      console.log(`Already reacted: ${m.content?.slice(0, 50) || "[no content]"}...`);
       state[ch] = m.id;
       continue;
     }
 
+    // フィルター3: 24時間以内のメッセージかチェック（Date生成コストあり）
+    if (Date.parse(m.timestamp) < twentyFourHoursAgo) {
+      console.log(`Old message: ${m.timestamp}`);
+      continue;
+    }
+
+    // フィルター4: 空メッセージはスキップ（Gemini API節約）
+    if (!m.content || m.content.trim().length === 0) {
+      console.log(`Empty message, skipping`);
+      state[ch] = m.id;
+      continue;
+    }
+
+    // ここまで来たメッセージのみGemini API呼び出し（最も高コスト）
     console.log(`Processing: ${m.content.slice(0, 50)}...`);
     const emoji = await askGemini(m.content);
     console.log(`Emoji: ${emoji}`);
