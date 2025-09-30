@@ -97,14 +97,27 @@ for (const ch of channels) {
   let url = `https://discord.com/api/v10/channels/${ch}/messages?limit=5`;
   if (last) url += `&after=${last}`;
 
-  const msgs = await fetch(url, {
+  const res = await fetch(url, {
     headers: { Authorization: `Bot ${token}` },
-  }).then((r) => r.json());
+  });
 
+  const msgs = await res.json();
+
+  // エラーレスポンスの詳細をログ出力
   if (!Array.isArray(msgs)) {
-    console.log(`Channel ${ch}: No messages or error`);
+    if (msgs.code === 50001) {
+      console.log(`Channel ${ch}: Missing Access (プライベートチャンネル)`);
+    } else if (msgs.code === 50013) {
+      console.log(`Channel ${ch}: Missing Permissions`);
+    } else if (msgs.message) {
+      console.log(`Channel ${ch}: ${msgs.message} (code: ${msgs.code})`);
+    } else {
+      console.log(`Channel ${ch}: No messages or error`);
+    }
     continue;
   }
+
+  console.log(`Channel ${ch}: Found ${msgs.length} messages`);
 
   for (const m of msgs.reverse()) {
     // フィルター1: Botのメッセージはスキップ（最速）
