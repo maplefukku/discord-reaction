@@ -18,7 +18,6 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CHANNEL_IDS: ${{ vars.CHANNEL_IDS }}
       - name: Commit state
         run: |
           git config user.name "github-actions[bot]"

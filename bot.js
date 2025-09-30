@@ -3,12 +3,37 @@ import fetch from "node-fetch";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const geminiKey = process.env.GEMINI_API_KEY;
-const channels = process.env.CHANNEL_IDS.split(",");
 
 let state = {};
 try {
   state = JSON.parse(fs.readFileSync(".state.json", "utf8"));
 } catch {}
+
+// 全サーバーの全チャンネルを取得
+const getAllChannels = async () => {
+  const guilds = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+    headers: { Authorization: `Bot ${token}` },
+  }).then((r) => r.json());
+
+  const channels = [];
+  for (const guild of guilds) {
+    const guildChannels = await fetch(
+      `https://discord.com/api/v10/guilds/${guild.id}/channels`,
+      { headers: { Authorization: `Bot ${token}` } }
+    ).then((r) => r.json());
+
+    // テキストチャンネルのみ (type: 0=GUILD_TEXT, 5=GUILD_NEWS)
+    channels.push(
+      ...guildChannels
+        .filter((ch) => ch.type === 0 || ch.type === 5)
+        .map((ch) => ch.id)
+    );
+  }
+  return channels;
+};
+
+const channels = await getAllChannels();
+console.log(`Monitoring ${channels.length} channels`);
 
 const askGemini = async (msg) => {
   const res = await fetch(
