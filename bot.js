@@ -116,6 +116,23 @@ for (const ch of channels) {
       continue;
     }
 
+    // 既にこのBotがリアクション済みかチェック
+    let alreadyReacted = false;
+    if (m.reactions && m.reactions.length > 0) {
+      for (const reaction of m.reactions) {
+        if (reaction.me) {
+          alreadyReacted = true;
+          break;
+        }
+      }
+    }
+
+    if (alreadyReacted) {
+      console.log(`Already reacted to: ${m.content.slice(0, 50)}...`);
+      state[ch] = m.id;
+      continue;
+    }
+
     console.log(`Processing: ${m.content.slice(0, 50)}...`);
     const emoji = await askGemini(m.content);
     console.log(`Emoji: ${emoji}`);
