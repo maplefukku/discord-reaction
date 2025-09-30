@@ -89,6 +89,9 @@ const askGemini = async (msg) => {
   }
 };
 
+// 24時間前のタイムスタンプ（ミリ秒）
+const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+
 for (const ch of channels) {
   const last = state[ch];
   let url = `https://discord.com/api/v10/channels/${ch}/messages?limit=5`;
@@ -105,6 +108,13 @@ for (const ch of channels) {
 
   for (const m of msgs.reverse()) {
     if (m.author.bot) continue;
+
+    // メッセージのタイムスタンプをチェック（24時間以内のみ処理）
+    const messageTimestamp = new Date(m.timestamp).getTime();
+    if (messageTimestamp < twentyFourHoursAgo) {
+      console.log(`Skipping old message (${m.timestamp})`);
+      continue;
+    }
 
     console.log(`Processing: ${m.content.slice(0, 50)}...`);
     const emoji = await askGemini(m.content);
