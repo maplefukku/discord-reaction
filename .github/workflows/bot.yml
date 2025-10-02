@@ -8,22 +8,31 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore state cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .state.json
+          key: bot-state-${{ github.run_id }}
+          restore-keys: |
+            bot-state-
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - run: npm i node-fetch
+
       - run: node bot.js
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      - name: Commit state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .state.json
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update state [skip ci]"
-          git push
+
+      - name: Save state cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .state.json
+          key: bot-state-${{ github.run_id }}
