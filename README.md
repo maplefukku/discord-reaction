@@ -5,9 +5,11 @@ GitHub Actionsで30分ごとに自動実行され、Discordの新着メッセー
 ## 特徴
 
 - **完全サーバーレス**: GitHub Actions cron で定期実行
-- **超低コスト**: Gemini API（無料枠）+ Discord REST API
-- **ミニマル設計**: 状態管理は `.state.json` のみ
+- **超低コスト**: Gemini 2.0 Flash API（無料枠）+ Discord REST API
+- **スマート設計**: GitHub Actions Cacheで状態管理、リポジトリを汚さない
 - **全チャンネル自動対応**: Botが参加している全サーバーの全テキストチャンネルを自動監視
+- **24時間以内のメッセージに対応**: 古いメッセージは自動スキップ
+- **重複防止**: 既にリアクション済みのメッセージはスキップ
 - **リアルタイム不要**: 30分ごとのポーリングで十分な場合に最適
 
 ## セットアップ（所要時間: 約10分）
@@ -153,14 +155,26 @@ gh secret set GEMINI_API_KEY -b "あなたのGemini APIキー"
 
 ## 自動実行の仕組み
 
-- **定期実行**: 30分ごとに自動実行（GitHub Actions cron）
-- **対象**: Botが参加している全サーバーの全テキストチャンネル
-- **処理内容**:
-  1. 各チャンネルの新着メッセージを最大5件取得
-  2. Botのメッセージはスキップ
-  3. Gemini AIに文章を送信して最適な絵文字を取得
-  4. メッセージにリアクションを追加
-  5. 処理済みメッセージIDを `.state.json` に保存（重複防止）
+### 実行フロー
+1. **30分ごとに自動実行**（GitHub Actions cron）
+2. **GitHub Actions Cacheから状態を復元**（処理済みメッセージID）
+3. **全チャンネルをスキャン**（Botが参加している全テキストチャンネル）
+4. **フィルタリング**:
+   - ✅ Botのメッセージはスキップ
+   - ✅ 既にリアクション済みのメッセージはスキップ
+   - ✅ 24時間より古いメッセージはスキップ
+   - ✅ 空のメッセージはスキップ
+5. **Gemini 2.0 Flash AIで絵文字を選択**
+   - メッセージ内容と感情を分析
+   - 最適な絵文字を1つ選択
+6. **リアクションを追加**
+7. **状態をキャッシュに保存**（次回実行で使用）
+
+### 状態管理
+- **保存先**: GitHub Actions Cache（リポジトリに残らない）
+- **保存内容**: 各チャンネルの最終処理メッセージID
+- **キャッシュ戦略**: 実行ごとに新しいキー、restore-keysで最新を自動復元
+- **自動削除**: 使われなくなった古いキャッシュはGitHub Actionsが自動削除
 
 ## カスタマイズ
 
@@ -181,9 +195,21 @@ gh secret set GEMINI_API_KEY -b "あなたのGemini APIキー"
 let url = `https://discord.com/api/v10/channels/${ch}/messages?limit=10`;
 ```
 
+### Gemini モデルを変更
+
+`bot.js` のモデル名を変更:
+
+```javascript
+// 現在: gemini-2.0-flash（バランス型）
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`
+
+// 最安: gemini-2.0-flash-lite（高速・低コスト）
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`
+```
+
 ### プロンプト調整
 
-`askGemini` 関数内のプロンプトを変更:
+`bot.js` の `askGemini` 関数内のプロンプトを変更:
 
 ```javascript
 text: `この文章の雰囲気に合う絵文字を1つ返して: ${msg}`
@@ -242,6 +268,11 @@ Actions → Discord Emoji Bot → Run workflow
 - API キーが正しく設定されているか確認
 - [Google AI Studio](https://makersuite.google.com/app/apikey) で新しいキーを発行
 
+**エラー: models/gemini-xxx is not found**
+- モデル名が古い可能性があります
+- `bot.js` を最新バージョンに更新してください
+- 現在のモデル: `gemini-2.0-flash`
+
 **エラー: Quota exceeded**
 - 無料枠を超過（1日1500リクエスト）
 - 翌日まで待つか、実行頻度を下げる（cron を `0 * * * *` に変更）
@@ -260,13 +291,31 @@ Actions → Discord Emoji Bot → Run workflow
 - レート制限に到達
 - 監視チャンネル数を減らすか、実行頻度を下げる
 
-### `.state.json` が更新されない
+### 絵文字が全て ❓ になる
 
-**原因: GitHub Actions の書き込み権限**
-```
-Settings → Actions → General → Workflow permissions
-→ 「Read and write permissions」を選択
-```
+**原因1: Gemini APIモデルエラー**
+- ログで `Gemini API Error` を確認
+- モデル名が古い可能性 → `gemini-2.0-flash` に更新
+
+**原因2: APIキーの問題**
+- Secretsが正しく設定されているか確認
+- APIキーを再発行して設定し直す
+
+### フォークしたリポジトリで動かない
+
+**必須設定**:
+1. **Secrets** に `DISCORD_BOT_TOKEN` と `GEMINI_API_KEY` を追加
+2. **Actions** タブで "I understand my workflows, go ahead and enable them" をクリック
+3. 自分のDiscord BotとGemini APIキーを使用する
+
+## 技術スタック
+
+- **実行環境**: GitHub Actions (Ubuntu latest)
+- **言語**: Node.js 20
+- **AI**: Gemini 2.0 Flash API
+- **Discord**: Discord REST API v10
+- **状態管理**: GitHub Actions Cache
+- **依存関係**: node-fetch のみ
 
 ## ライセンス
 
