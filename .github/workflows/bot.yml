@@ -11,15 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get current date
-        id: date
-        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-
       - name: Restore state cache
         uses: actions/cache/restore@v4
         with:
           path: .state.json
-          key: bot-state-${{ steps.date.outputs.date }}
+          key: bot-state-${{ github.run_number }}
           restore-keys: |
             bot-state-
 
@@ -39,4 +35,4 @@ jobs:
         if: always()
         with:
           path: .state.json
-          key: bot-state-${{ steps.date.outputs.date }}
+          key: bot-state-${{ github.run_number }}
