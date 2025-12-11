@@ -35,6 +35,17 @@ const getAllChannels = async () => {
 const channels = await getAllChannels();
 console.log(`Monitoring ${channels.length} channels`);
 
+// エラー時に返すランダムな絵文字リスト
+const fallbackEmojis = [
+  "👍", "❤️", "😊", "🎉", "✨", "🔥", "💯", "👀",
+  "🤔", "😅", "🙌", "💪", "🎊", "🌟", "😎", "🚀",
+  "💡", "⭐", "👏", "😄", "🎈", "🌈", "💖", "🎯"
+];
+
+const getRandomEmoji = () => {
+  return fallbackEmojis[Math.floor(Math.random() * fallbackEmojis.length)];
+};
+
 const askGemini = async (msg) => {
   try {
     const res = await fetch(
@@ -74,18 +85,18 @@ const askGemini = async (msg) => {
 
     if (j.error) {
       console.error("Gemini API Error:", j.error);
-      return "❓";
+      return getRandomEmoji();
     }
 
     const text = j.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!text) return "❓";
+    if (!text) return getRandomEmoji();
 
     // 絵文字以外の文字を除去
     const emojiOnly = text.match(/[\p{Emoji}]/gu)?.[0];
-    return emojiOnly || "❓";
+    return emojiOnly || getRandomEmoji();
   } catch (error) {
     console.error("Gemini request failed:", error.message);
-    return "❓";
+    return getRandomEmoji();
   }
 };
 
